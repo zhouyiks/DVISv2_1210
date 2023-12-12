@@ -143,6 +143,7 @@ class ViHubCriterion(nn.Module):
     def loss_mask_iou(self, outputs, targets, indices, num_masks):
         all_pred_iou = []
         all_gt_iou = []
+        aux_loss_iou = 0
         for output_i, target_i, indice_i in zip(outputs, targets, indices):
             pred_logits = output_i["pred_logits"][0]  # q, k+1
 
@@ -160,11 +161,15 @@ class ViHubCriterion(nn.Module):
 
             all_pred_iou.append(pred_iou[valid_mask])
             all_gt_iou.append(gt_iou[valid_mask])
+            aux_loss_iou += pred_iou.sum()
 
         all_pred_iou = torch.cat(all_pred_iou, dim=0)
         all_gt_iou = torch.cat(all_gt_iou, dim=0).unsqueeze(1)
 
-        loss_iou = F.smooth_l1_loss(all_pred_iou, all_gt_iou)
+        if all_pred_iou.shape[0] == 0:
+            loss_iou = aux_loss_iou * 0.
+        else:
+            loss_iou = F.smooth_l1_loss(all_pred_iou, all_gt_iou)
         losses = {"loss_iou": loss_iou}
 
         return losses
