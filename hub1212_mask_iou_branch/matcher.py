@@ -136,8 +136,12 @@ class AuxHungarianMatcher(nn.Module):
                     mask_iou = batch_mask_iou(out_mask, tgt_mask)
                 else:
                     mask_iou = batch_mask_iou_jit(out_mask, tgt_mask)
-            gt_mask_iou = torch.max(mask_iou, dim=-1)[0]
+            if mask_iou.shape[1] == 0:
+                gt_mask_iou = torch.zeros(size=(mask_iou.shape[0], )).to(mask_iou)
+            else:
+                gt_mask_iou = torch.max(mask_iou, dim=-1)[0]
             all_gt_mask_iou.append(gt_mask_iou)
+            
         return all_gt_mask_iou
 
     @torch.no_grad()
