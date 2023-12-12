@@ -159,6 +159,7 @@ class ViHub_online(MinVIS):
             oversample_ratio=cfg.MODEL.MASK_FORMER.OVERSAMPLE_RATIO,
             importance_sample_ratio=cfg.MODEL.MASK_FORMER.IMPORTANCE_SAMPLE_RATIO,
             num_new_ins=cfg.MODEL.VIDEO_HEAD.NUM_NEW_INS,
+            inference_select_threshold=cfg.MODEL.VIDEO_HEAD.INFERENCE_SELECT_THRESHOLD,
         )
 
         # cf_matcher = ConsecutiveFramesMatcher(
