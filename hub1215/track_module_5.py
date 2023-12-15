@@ -327,15 +327,14 @@ class VideoInstanceCutter(nn.Module):
             ms_output = torch.stack(ms_output, dim=0)  # (num_layers+1, q, b, c)
             outputs_class, outputs_mask = self.prediction(ms_output, mask_features[:, i, ...])
             reid_ms_output = self.reid_embed(ms_output)
-            reid_frame_embeds = self.reid_embed(single_frame_embeds_no_norm)
             out_dict = {
                 "pred_logits": outputs_class[-1],  # b, q, k+1
                 "pred_masks": outputs_mask[-1],  # b, q, h, w
                 "num_new_ins": num_valid_fq.item(),
                 "pred_embeds": reid_ms_output[-1],  # q, b, c
-                "frame_embeds": reid_frame_embeds,  # fq, b, c
+                "frame_embeds": single_frame_embeds_no_norm,  # fq, b, c
                 "frame_embeds_indices": frames_info["indices"][i],  # a list of (src_idx, tgt_idx),
-                "disappear_embed": self.reid_embed(self.disappear_embed.weight),  # 1, c
+                "disappear_embed": self.disappear_embed.weight,  # 1, c
                 "logit_scale": self.logit_scale,
             }
 
@@ -396,7 +395,7 @@ class VideoInstanceCutter(nn.Module):
                 self.track_embeds = self.get_mask_pos_embed(outputs_mask[-1, :, valid_track_query, :, :],
                                                             ori_mask_features[:, i, ...])  # q', b, c
                 out_dict.update({
-                    "aux_outputs": self._set_aux_loss(outputs_class, outputs_mask, reid_ms_output, reid_frame_embeds, frames_info["indices"][i]),
+                    "aux_outputs": self._set_aux_loss(outputs_class, outputs_mask, reid_ms_output, single_frame_embeds_no_norm, frames_info["indices"][i]),
                     "disappear_tgt_id": -10000 if self.disappear_tgt_id is None else self.disappear_tgt_id,
                 })
                 all_outputs.append(out_dict)
@@ -429,7 +428,7 @@ class VideoInstanceCutter(nn.Module):
             self.track_embeds = self.readout("last_pos")
 
             out_dict.update({
-                "aux_outputs": self._set_aux_loss(outputs_class, outputs_mask, reid_ms_output, reid_frame_embeds, frames_info["indices"][i]),
+                "aux_outputs": self._set_aux_loss(outputs_class, outputs_mask, reid_ms_output, single_frame_embeds_no_norm, frames_info["indices"][i]),
                 "disappear_tgt_id": -10000 if self.disappear_tgt_id is None else self.disappear_tgt_id,
             })
             all_outputs.append(out_dict)
@@ -574,8 +573,8 @@ class VideoInstanceCutter(nn.Module):
         trcQ_embeds: num_trc_queries, b, c
         srcQ_embeds: num_valid_fq, b, c
         """
-        trcQ_embeds = self.reid_embed(trcQ_embeds[:, 0, :])
-        srcQ_embeds = self.reid_embed(torch.cat([srcQ_embeds[:, 0, :], self.disappear_embed.weight], dim=0))
+        trcQ_embeds = self.reid_embed(trcQ_embeds)
+        srcQ_embeds = torch.cat([srcQ_embeds, self.disappear_embed.weight], dim=0)
 
         trcQ_embeds = F.normalize(trcQ_embeds, dim=-1)
         srcQ_embeds = F.normalize(srcQ_embeds, dim=-1)
@@ -637,7 +636,7 @@ class VideoInstanceCutter(nn.Module):
                  "pred_embeds": c,
                  "frame_embeds": frame_embeds,
                  "frame_embeds_indices": frame_embeds_indices,
-                 "disappear_embed": self.reid_embed(self.disappear_embed.weight),
+                 "disappear_embed": self.disappear_embed.weight,
                  "logit_scale": self.logit_scale,
                  } for a, b, c
                 in zip(outputs_cls[:-1], outputs_mask[:-1], ms_outputs[:-1])]
